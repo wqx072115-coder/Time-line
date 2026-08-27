@@ -1,0 +1,46 @@
+{
+  "events": [
+    {
+      "id": "einstein",
+      "type": "person",
+      "name": "爱因斯坦",
+      "nameEn": "Albert Einstein",
+      "nationality": ["germany", "switzerland", "usa"],
+      "birth": 1879,
+      "death": 1955,
+      "category": "科学家",
+      "birthPlace": "德国乌尔姆",
+      "description": "理论物理学家，提出狭义相对论与广义相对论，质能方程 E=mc² 改变了人类对时空与能量的认识，1921年获诺贝尔物理学奖。因纳粹迫害先后移居瑞士、美国，晚年致力于统一场论研究。"
+    },
+    {
+      "id": "qin-unify",
+      "type": "event",
+      "name": "秦统一六国",
+      "nameEn": "Qin Unification",
+      "country": "china",
+      "year": -221,
+      "category": "战争",
+      "description": "秦王嬴政（秦始皇）先后灭韩、赵、魏、楚、燕、齐六国，建立中国历史上第一个统一的中央集权王朝，自称“始皇帝”。"
+    },
+    {
+      "id": "declaration",
+      "type": "event",
+      "name": "《独立宣言》发表",
+      "nameEn": "Declaration of Independence",
+      "country": "usa",
+      "year": 1776,
+      "category": "政治",
+      "description": "1776年7月4日，北美13个殖民地通过《独立宣言》，宣布脱离英国独立，宣告“人人生而平等”的建国理念。"
+    },
+    {
+      "id": "prc-founded",
+      "type": "event",
+      "name": "中华人民共和国成立",
+      "nameEn": "Founding of PRC",
+      "country": "china",
+      "year": 1949,
+      "category": "政治",
+      "description": "1949年10月1日，毛泽东在天安门城楼宣告中华人民共和国中央人民政府成立，开启了中国历史的新纪元。"
+    }
+  ]
+}
