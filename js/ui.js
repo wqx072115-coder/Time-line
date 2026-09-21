@@ -3,8 +3,9 @@ import { store, allCountries, allEvents, saveData, exportAll, importAll, matchNa
 import { view, CONST } from './state.js';
 import { fitView, xToYear } from './renderer.js';
 import { zoomAt } from './interaction.js';
-import { openDetail, showPanel, hidePanel, togglePanel } from './panels.js';
-import { uid, escapeHtml, formatYearShort, toast } from './utils.js';
+import { initEditor, openEditor } from './editor.js';
+import { openDetail, showPanel, togglePanel } from './panels.js';
+import { escapeHtml, formatYearShort, toast } from './utils.js';
 
 export function initUI(opts = {}) {
   const render = opts.render || (() => {});
@@ -26,13 +27,13 @@ export function initUI(opts = {}) {
     if (window._openSettings) window._openSettings();
     showPanel(document.getElementById('settingsPanel'));
   });
-  document.getElementById('btnAddEvent').addEventListener('click', () => { openAddEvent(); showPanel(document.getElementById('addEventModal')); });
+  document.getElementById('btnAddEvent').addEventListener('click', () => openEditor());
 
   // ---------- 搜索 ----------
   initSearch(onFocus, render);
 
   // ---------- 添加事件 ----------
-  initAddEvent(render, onFocus);
+  initEditor({render, onFocus});
 
   // ---------- 设置 / 备份 ----------
   initSettings(render);
@@ -65,7 +66,7 @@ function initSearch(onFocus, render) {
       const hay = ((e.name || '') + ' ' + (e.nameEn || '')).toLowerCase();
       if (hay.includes(q)) {
         if (e.type === 'person') {
-          const c = matchNationality((e.nationality || [])[0]);
+          const c = (e.nationality || []).map(matchNationality).find(Boolean);
           hits.push({ kind: 'person', item: e, country: c, color: '#0e7c66', tag: '人物' });
         } else {
           const c = findCountry(e.country);
@@ -120,85 +121,6 @@ function selectHit(hit, onFocus, render) {
   openDetail(hit);
 }
 
-// ---------- 添加事件 ----------
-function initAddEvent(render, onFocus) {
-  const countrySelect = document.getElementById('aeCountry');
-  const typeSelect = document.getElementById('aeType');
-  const personFields = document.getElementById('aePersonFields');
-  const eventFields = document.getElementById('aeEventFields');
-
-  function fillCountries() {
-    countrySelect.innerHTML = allCountries().map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name)}</option>`).join('');
-  }
-  typeSelect.addEventListener('change', () => {
-    const isPerson = typeSelect.value === 'person';
-    personFields.classList.toggle('hidden', !isPerson);
-    eventFields.classList.toggle('hidden', isPerson);
-  });
-
-  document.getElementById('aeSubmit').addEventListener('click', () => {
-    const type = typeSelect.value;
-    const name = document.getElementById('aeName').value.trim();
-    if (!name) { toast('请填写名称'); return; }
-    const countryId = countrySelect.value;
-    const country = findCountry(countryId);
-    const description = document.getElementById('aeDesc').value.trim();
-
-    if (type === 'event') {
-      const year = Number(document.getElementById('aeYear').value);
-      if (Number.isNaN(year)) { toast('请填写有效年份'); return; }
-      store.userEvents.push({
-        id: uid(), type: 'event', name, nameEn: '', country: countryId, year,
-        category: '自定义', description, source: 'manual', createdAt: new Date().toISOString(),
-      });
-      saveData.userEvents();
-      hidePanel(document.getElementById('addEventModal'));
-      render();
-      onFocus({ type: 'event', year }, country);
-      toast('事件已添加');
-    } else {
-      const birth = Number(document.getElementById('aeBirth').value);
-      if (Number.isNaN(birth)) { toast('请填写出生年份'); return; }
-      const deathRaw = document.getElementById('aeDeath').value.trim();
-      const death = deathRaw === '' ? null : Number(deathRaw);
-      const natRaw = document.getElementById('aeNat').value.trim();
-      const natIds = [];
-      if (natRaw) {
-        natRaw.split(/[,，、]/).map(s => s.trim()).filter(Boolean).forEach(n => {
-          const c = matchNationality(n);
-          if (c) natIds.push(c.id);
-          else natIds.push(n); // 保留原字符串，渲染时若无匹配则不显示
-        });
-      }
-      if (!natIds.length) natIds.push(countryId);
-      store.userEvents.push({
-        id: uid(), type: 'person', name, nameEn: '', nationality: natIds, birth,
-        death: Number.isNaN(death) ? null : death, category: '人物', description,
-        source: 'manual', createdAt: new Date().toISOString(),
-      });
-      saveData.userEvents();
-      hidePanel(document.getElementById('addEventModal'));
-      render();
-      const c = findCountry(natIds[0]);
-      if (c) onFocus({ type: 'person', birth, death }, c);
-      toast('人物已添加');
-    }
-  });
-
-  // 打开时填充
-  window._fillAECountries = fillCountries;
-  fillCountries();
-}
-
-function openAddEvent() {
-  if (window._fillAECountries) window._fillAECountries();
-  document.getElementById('aeName').value = '';
-  document.getElementById('aeYear').value = '';
-  document.getElementById('aeBirth').value = '';
-  document.getElementById('aeDeath').value = '';
-  document.getElementById('aeNat').value = '';
-  document.getElementById('aeDesc').value = '';
-}
 
 // ---------- 设置 ----------
 function initSettings(render) {
@@ -255,7 +177,9 @@ function initSettings(render) {
     const reader = new FileReader();
     reader.onload = () => {
       try {
+        if (!confirm('导入将替换当前浏览器中的个人记录。请确认已导出备份。')) return;
         importAll(reader.result);
+        fitView();
         render();
         toast('导入成功');
       } catch (err) {

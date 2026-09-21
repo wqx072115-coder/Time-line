@@ -5,13 +5,15 @@ export const view = {
   offsetY: 0,        // 纵向平移（像素）
   cw: 1200,          // 画布逻辑宽度
   ch: 700,           // 画布逻辑高度
-  minScale: 0.03,
+  minScale: 0.001,
   maxScale: 120,
 };
 
 export const ui = {
   selection: null,   // 当前选中项 {kind, item, countryId, country}
   hover: null,
+  hits: [],
+  lanes: [],
 };
 
 export const CONST = {

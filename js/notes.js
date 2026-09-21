@@ -1,5 +1,6 @@
 // 笔记功能（localStorage 持久化）
-import { store, saveData } from './data.js';
+import { store, saveData, validYear } from './data.js';
+import { showPanel } from './panels.js';
 import { uid, escapeHtml, formatYearFull, toast } from './utils.js';
 
 let editingId = null;
@@ -29,7 +30,8 @@ export function initNotes(opts = {}) {
     const text = document.getElementById('noteText').value.trim();
     if (!text) { toast('请填写笔记内容'); return; }
     const yearRaw = document.getElementById('noteYear').value.trim();
-    const year = yearRaw === '' ? null : Number(yearRaw);
+    let year=null;
+    try { year=yearRaw===''?null:validYear(yearRaw); } catch(error){toast(error.message);return;}
 
     if (editingId) {
       const n = store.notes.find(x => x.id === editingId);
@@ -54,6 +56,14 @@ export function initNotes(opts = {}) {
     toast('笔记已保存');
   });
 
+  document.addEventListener('datachanged',renderNotes);
+  document.addEventListener('new-note',e=>{
+    document.getElementById('btnNewNote').click();
+    const p=e.detail.item;
+    document.getElementById('noteTitle').value=p.name;
+    document.getElementById('noteYear').value=p.start??p.birth??p.year??'';
+    showPanel(document.getElementById('notesPanel'));
+  });
   renderNotes();
 }
 
@@ -72,9 +82,10 @@ function renderNotes() {
       <div class="note-text">${escapeHtml(n.text)}</div>
       <div class="note-meta">${formatTime(n.updatedAt || n.createdAt)}</div>
       <div class="note-actions">
-        ${n.year != null ? `<button class="btn" data-locate="${n.id}">定位到年份</button>` : ''}
-        <button class="btn" data-edit="${n.id}">编辑</button>
-        <button class="btn" data-del="${n.id}">删除</button>
+        ${n.year != null ? `<button class="btn" data-locate="${escapeHtml(n.id)}">定位到年份</button>` : ''}
+        <button class="btn" data-edit="${escapeHtml(n.id)}">编辑</button>
+        <button class="btn" data-ai-note="${escapeHtml(n.id)}">AI 整理</button>
+        <button class="btn" data-del="${escapeHtml(n.id)}">删除</button>
       </div>
     </div>`;
   }).join('');
@@ -82,6 +93,7 @@ function renderNotes() {
   list.querySelectorAll('[data-edit]').forEach(btn => {
     btn.addEventListener('click', () => startEdit(btn.getAttribute('data-edit')));
   });
+  list.querySelectorAll('[data-ai-note]').forEach(btn=>btn.onclick=()=>document.dispatchEvent(new CustomEvent('ai-note',{detail:store.notes.find(n=>n.id===btn.dataset.aiNote)})));
   list.querySelectorAll('[data-del]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (!confirm('确定删除这条笔记？')) return;

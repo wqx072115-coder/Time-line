@@ -7,6 +7,7 @@ export function clamp(v, min, max) {
 export function formatYearFull(y) {
   if (y == null || Number.isNaN(Number(y))) return '—';
   y = Number(y);
+  if (y === 0) return '公元前后';
   if (y <= 0) return `公元前${Math.abs(y)}年`;
   return `公元${y}年`;
 }
@@ -14,6 +15,7 @@ export function formatYearFull(y) {
 // 短年份显示（用于坐标轴）
 export function formatYearShort(y) {
   y = Number(y);
+  if (y === 0) return '公元前后';
   if (y <= 0) return `前${Math.abs(y)}`;
   return `${y}`;
 }
@@ -25,6 +27,7 @@ export function rangeLabel(a, b) {
 
 // 将任意值转为有限数字，非法返回 null
 export function toFinite(v) {
+  if (v == null || typeof v === 'boolean' || String(v).trim() === '') return null;
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 }
@@ -32,10 +35,10 @@ export function toFinite(v) {
 // 校验并规范化颜色（支持 #abc 与 #aabbcc），非法回退默认色
 export function normalizeColor(c, fallback = '#999999') {
   let s = String(c || '').trim();
-  if (/^[0-9a-f]{3}$/i.test(s)) s = '#' + [...s].map(x => x + x).join('');
+  if (/^#?[0-9a-f]{3}$/i.test(s)) s = '#' + [...s.replace('#', '')].map(x => x + x).join('');
   if (/^#[0-9a-f]{6}$/i.test(s)) return s;
   let f = String(fallback || '').trim();
-  if (/^[0-9a-f]{3}$/i.test(f)) f = '#' + [...f].map(x => x + x).join('');
+  if (/^#?[0-9a-f]{3}$/i.test(f)) f = '#' + [...f.replace('#', '')].map(x => x + x).join('');
   return /^#[0-9a-f]{6}$/i.test(f) ? f : '#999999';
 }
 

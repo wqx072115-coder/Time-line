@@ -8,9 +8,12 @@
       "nationality": ["germany", "switzerland", "usa"],
       "birth": 1879,
       "death": 1955,
+      "birthDate": "1879-03-14",
+      "deathDate": "1955-04-18",
+      "sourceUrl": "https://www.nobelprize.org/prizes/physics/1921/einstein/biographical/",
       "category": "科学家",
       "birthPlace": "德国乌尔姆",
-      "description": "理论物理学家，提出狭义相对论与广义相对论，质能方程 E=mc² 改变了人类对时空与能量的认识，1921年获诺贝尔物理学奖。因纳粹迫害先后移居瑞士、美国，晚年致力于统一场论研究。"
+      "description": "理论物理学家，提出狭义相对论与广义相对论，因解释光电效应获1921年诺贝尔物理学奖。曾拥有德国、瑞士、美国国籍。人物线展示生平，不表示其在各国持有国籍的完整时段。"
     },
     {
       "id": "qin-unify",

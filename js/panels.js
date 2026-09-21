@@ -1,6 +1,7 @@
 // 详情面板与提示框
-import { periodDescription, setPeriodDescription, matchNationality } from './data.js';
-import { periodMapSVG, getPeriodMap } from './maps.js';
+import { periodDescription, setPeriodDescription, matchNationality, removeEntry, removePeriod } from './data.js';
+import { openEditor } from './editor.js';
+import { getPeriodMap } from './maps.js';
 import { formatYearFull, rangeLabel, escapeHtml, toast } from './utils.js';
 
 function countryNameOf(nat) {
@@ -18,7 +19,10 @@ function personHTML(p) {
     <div class="person-avatar">${escapeHtml(p.category || '人物') === '科学家' ? '🔬' : '👤'}</div>
     <h2 style="margin:4px 0">${escapeHtml(p.name)}</h2>
     <div class="detail-dates">${dates}</div>
+    ${p.birthDate ? `<div class="detail-meta">出生日期：${escapeHtml(p.birthDate)}</div>` : ''}
+    ${p.deathDate ? `<div class="detail-meta">逝世日期：${escapeHtml(p.deathDate)}</div>` : ''}
     <div class="detail-meta">国籍：${escapeHtml(nats)}</div>
+    <div class="detail-meta">人物线表示生平，不表示在各国拥有国籍的完整时段。</div>
     ${p.birthPlace ? `<div class="detail-meta">出生地：${escapeHtml(p.birthPlace)}</div>` : ''}
     ${p.category ? `<div class="detail-meta">分类：${escapeHtml(p.category)}</div>` : ''}
     <div class="detail-desc">${escapeHtml(p.description || '（暂无说明）')}</div>
@@ -51,18 +55,19 @@ function periodMapHTML(country, period) {
   const m = getPeriodMap(country, period);
   // JSON 中显式配置的 mapImage 优先；否则使用维基共享资源地图
   const src = period.mapImage || m.img;
+  if(!src) return '<div class="map-caption">尚未收录此时期的历史地图。可通过“编辑时期”添加地图图片及来源。</div>';
   return `
     <img src="${escapeHtml(src)}" alt="${escapeHtml(period.name)}地图" loading="lazy" referrerpolicy="no-referrer">
-    <div class="map-caption">${escapeHtml(period.name)} · 地图来源：维基共享资源</div>`;
+    <div class="map-caption">${escapeHtml(period.mapSource || m.caption || '历史参考地图，范围以来源标注年代为准')} · ${period.mapImage ? '自定义图片' : 'Wikimedia Commons'}</div>`;
 }
 
 function periodMapFallbackHTML(country, period) {
-  return periodMapSVG(country, period) +
-    `<div class="map-caption">维基地图加载失败，已回退为示意图（点击下方链接查看维基百科）</div>`;
+  return `<div class="map-caption">地图暂时无法加载。请通过下方资料链接查看，或编辑时期添加可访问的地图网址。</div>`;
 }
 
 export function openDetail(hit) {
   if (!hit || !hit.item) return;
+  hit = {...hit, countryId: hit.countryId || hit.country?.id};
   const panel = document.getElementById('detailPanel');
   const title = document.getElementById('detailTitle');
   const body = document.getElementById('detailBody');
@@ -76,6 +81,7 @@ export function openDetail(hit) {
     body.innerHTML = `
       <div class="detail-dates">${rangeLabel(p.start, p.end)}</div>
       <div class="map-wrap" id="periodMapWrap">${periodMapHTML(country, p)}</div>
+      ${m.source && !p.mapImage ? `<a class="map-link" href="${escapeHtml(m.source)}" target="_blank" rel="noopener">地图作者、版本与许可 ↗</a>` : ''}
       <a class="map-link" href="${escapeHtml(m.article)}" target="_blank" rel="noopener">在维基百科查看「${escapeHtml(p.name)}」▸</a>
       <div class="detail-desc-label">简介${custom ? '（已自定义）' : ''}</div>
       <div class="detail-desc" id="descText">${escapeHtml(desc)}</div>
@@ -102,6 +108,15 @@ export function openDetail(hit) {
     body.innerHTML = countryHTML(hit.item);
   }
 
+  if(hit.kind!=='country'){
+    const actions=document.createElement('div');actions.className='row';
+    const edit=document.createElement('button');edit.className='btn';edit.textContent=hit.kind==='period'?'编辑时期 / 地图':'编辑记录';edit.onclick=()=>openEditor(hit.item,hit.countryId);actions.append(edit);
+    const note=document.createElement('button');note.className='btn';note.textContent='记一条笔记';note.onclick=()=>document.dispatchEvent(new CustomEvent('new-note',{detail:hit}));actions.append(note);
+    const del=document.createElement('button');del.className='btn';del.textContent='删除记录';del.onclick=()=>{if(confirm('删除这条记录？内置记录只会在此浏览器中隐藏。')){if(hit.kind==='period')removePeriod(hit.countryId,hit.item.id);else removeEntry(hit.item.id);hidePanel(panel);}};actions.append(del);
+    body.append(actions);
+    if(/^https?:\/\//.test(hit.item.sourceUrl||'')){const a=document.createElement('a');a.href=hit.item.sourceUrl;a.target='_blank';a.rel='noopener noreferrer';a.className='map-link';a.textContent='查看资料来源 ↗';body.append(a);}
+    if(hit.item.source==='ai'){const p=document.createElement('p');p.className='hint-text';p.textContent='AI 生成资料，请结合来源核对年代和表述。';body.append(p);}
+  }
   showPanel(panel);
 }
 
@@ -150,13 +165,14 @@ export function updateTooltip(hit, pos) {
 
 // ---------- 面板开关 ----------
 export function showPanel(el) {
+  if(el.classList.contains('panel'))document.querySelectorAll('.panel').forEach(p=>{if(p!==el)p.classList.add('hidden');});
   el.classList.remove('hidden');
 }
 export function hidePanel(el) {
   el.classList.add('hidden');
 }
 export function togglePanel(el) {
-  el.classList.toggle('hidden');
+  if(el.classList.contains('hidden'))showPanel(el);else hidePanel(el);
 }
 
 export function initPanels() {

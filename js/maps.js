@@ -85,55 +85,19 @@ function periodArticle(country, period) {
 // 返回某时期的地图来源（图片 URL + 维基文章链接）
 export function getPeriodMap(country, period) {
   const key = country.id + '/' + period.id;
-  const file = PERIOD_FILES[key] || (country.id === 'usa' ? USA_FALLBACK : CHINA_FALLBACK);
+  const local = {
+    'china/qin': {img:'assets/maps/qin.png',caption:'约公元前210年 · ItsMine / Yeu Ninje，后续修订 Nguyen1310 · CC BY-SA 3.0',file:'Qin empire 210 BCE.png'},
+    'china/tang': {img:'assets/maps/tang.png',caption:'约公元700年参考图（部分地区含其他年代注记）· Ian Kiu · CC BY-SA 3.0',file:'Tang Dynasty circa 700 CE.png'},
+    'usa/colonial': {img:'assets/maps/colonies.svg',caption:'约1775年十三殖民地 · Urban 及后续贡献者 · 公有领域',file:'Map Thirteen Colonies 1775.svg'},
+  }[key];
+  if(local)return {...local,article:periodArticle(country,period),source:'https://commons.wikimedia.org/wiki/File:'+encodeURIComponent(local.file)};
+  // Do not substitute another dynasty or a China map for an unknown country.
+  const file = ['china/xin','china/donghan','china/sanguo','china/dongzhou'].includes(key) ? null : PERIOD_FILES[key];
   return {
-    img: wikiFile(file, 900),
+    img: file ? wikiFile(file, 900) : null,
+    caption: file || '尚未收录此时期地图',
     file,
+    source: file ? 'https://commons.wikimedia.org/wiki/File:'+encodeURIComponent(file) : null,
     article: periodArticle(country, period),
   };
-}
-
-// ---------- 兜底示意 SVG（维基地图加载失败时使用） ----------
-const CHINA_MAIN = `M120,95 L200,62 L300,72 L400,42 L520,58 L620,92 L700,150 L724,220 L704,300 L664,342 L642,422 L600,472 L562,522 L518,540 L474,562 L432,540 L392,562 L352,520 L300,470 L258,420 L220,380 L178,342 L138,300 L118,238 L98,180 Z`;
-const CHINA_ISLANDS = `
-  <ellipse cx="662" cy="466" rx="16" ry="26" transform="rotate(-12 662 466)"/>
-  <ellipse cx="434" cy="576" rx="26" ry="14"/>`;
-
-const USA_MAIN = `M64,182 L112,120 L200,90 L320,100 L420,122 L468,180 L560,202 L682,232 L722,282 L702,342 L662,420 L640,470 L662,522 L702,562 L642,542 L562,562 L500,542 L440,522 L420,470 L380,450 L340,420 L300,400 L240,420 L180,380 L140,320 L110,258 Z`;
-const USA_FLORIDA = `<path d="M640,470 L640,540 L600,470 Z"/>`;
-const USA_INSETS = `
-  <rect x="66" y="40" width="72" height="58" rx="4"/>
-  <circle cx="204" cy="510" r="7"/>
-  <circle cx="224" cy="532" r="7"/>`;
-
-function svgShell(path, label, color) {
-  return `<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeHtml(label)}" class="map-svg">
-    <defs>
-      <radialGradient id="mapfill" cx="50%" cy="42%" r="70%">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.95"/>
-        <stop offset="100%" stop-color="${color}" stop-opacity="0.45"/>
-      </radialGradient>
-    </defs>
-    <rect width="800" height="600" fill="#f6f2e9"/>
-    <g fill="url(#mapfill)" stroke="#5a4a35" stroke-width="2.5" stroke-linejoin="round">${path}</g>
-    <text x="24" y="48" font-size="22" font-weight="700" fill="#5a4a35" font-family="system-ui,sans-serif">${escapeHtml(label)}</text>
-  </svg>`;
-}
-
-function genericSVG(label, color) {
-  return `<svg viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg" role="img" class="map-svg">
-    <rect width="800" height="600" fill="#f6f2e9"/>
-    <circle cx="400" cy="290" r="180" fill="${color}" fill-opacity="0.5" stroke="#5a4a35" stroke-width="2.5"/>
-    <text x="400" y="300" text-anchor="middle" font-size="40" fill="#5a4a35" font-family="system-ui,sans-serif">${escapeHtml(label)}</text>
-  </svg>`;
-}
-
-// 兜底示意地图（维基地图加载失败时使用）
-export function periodMapSVG(country, period) {
-  const color = period?.color || country.color || '#999';
-  const label = period?.name || country.name;
-  const key = String(country.id || '').toLowerCase();
-  if (key === 'china') return svgShell(CHINA_MAIN + CHINA_ISLANDS, label, color);
-  if (key === 'usa' || key === 'united-states') return svgShell(USA_MAIN + USA_FLORIDA + USA_INSETS, label, color);
-  return genericSVG(label, color);
 }

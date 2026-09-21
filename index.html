@@ -27,14 +27,16 @@
         <div id="searchResults" class="search-results"></div>
       </div>
       <button id="btnAI" class="btn accent">🤖 AI 助手</button>
-      <button id="btnAddEvent" class="btn">＋ 事件</button>
+      <button id="btnAddEvent" class="btn">＋ 添加</button>
       <button id="btnNotes" class="btn">📝 笔记</button>
       <button id="btnSettings" class="btn">⚙ 设置</button>
     </div>
   </header>
 
+  <section class="intro"><div><span class="eyebrow">YOUR PERSONAL HISTORY ATLAS</span><h1>在时间中，看见世界。</h1><p>沿着中国与美国的历史脉络，记录人物、事件与自己的思考。</p></div><div class="intro-stats" id="atlasStats">正在载入历史档案…</div></section>
+  <nav class="view-bar" aria-label="时间视图"><div class="row"><button class="btn" id="btnAncient">全部历史</button><button class="btn" id="btnModern">1500 年至今</button><button class="btn" id="btnRecent">近现代</button></div><span class="legend">■ 朝代 / 时期　<span style="color:#0e7c66">━ 人物生平</span>　<span style="color:#8e44ad">◆ 事件</span></span></nav>
   <main id="stage">
-    <canvas id="timeline"></canvas>
+    <canvas id="timeline" aria-label="历史时间线，滚轮缩放、拖动平移，也可以用搜索定位" tabindex="0"></canvas>
     <div id="hint" class="hint">🖱 滚轮缩放 &nbsp;·&nbsp; 拖动画布 &nbsp;·&nbsp; 点击朝代 / 人物查看详情</div>
     <div id="tooltip" class="tooltip"></div>
     <div id="toast" class="toast"></div>
@@ -138,7 +140,7 @@
     <div class="panel-body settings-body">
       <div class="settings-section">
         <h3>AI 服务</h3>
-        <p class="hint-text">API Key 仅保存在你的浏览器本地（localStorage），不会上传到任何服务器。</p>
+        <p class="hint-text">密钥保存在此浏览器，调用时会发送到你配置的 AI 接口。不要将密钥提交到仓库；备份不包含密钥。模型名称请按服务商实际提供的名称填写。</p>
         <label>服务商</label>
         <select id="stProvider">
           <option value="openai">OpenAI 兼容接口（DeepSeek / OpenAI / 中转…）</option>
@@ -169,11 +171,12 @@
       </div>
       <div class="settings-section">
         <h3>关于</h3>
-        <p class="hint-text">基础数据（朝代等）编辑 <code>data/countries.json</code> 与 <code>data/events.json</code>。朝代地图默认来自维基共享资源的真实历史地图，可在朝代数据中设置 <code>mapImage</code> 替换为自定义图片链接。</p>
+        <p class="hint-text">点击条目可以编辑内容；“添加”支持人物、事件和时期。秦、唐、十三殖民地地图随项目提供；其他已配置地图需要联网，缺少地图的时期可自行补充。地图代表所注明的年代，不代表整个时期疆域。个人内容仅存于当前浏览器，请定期导出备份。</p>
       </div>
     </div>
   </aside>
 
-  <script type="module" src="js/main.js"></script>
+  <noscript>请启用 JavaScript 才能查看时间线。</noscript>
+  <script src="js/bootstrap.js"></script>
 </body>
 </html>

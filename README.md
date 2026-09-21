@@ -1,93 +1,74 @@
-# 历史时间线 · History Timeline
+# 历史时间线 · History Atlas
 
-一个纯前端的个人历史时间线网页，用 **Y 轴 = 国家、X 轴 = 时间** 的方式直观展示中国与世界历史。初始内置中国与美国两个国家的朝代/时期，方便查看 demo 效果并随时修改。
+个人历史资料与笔记工具。X 轴为时间、Y 轴为国家，初始显示中国和美国。纯静态 HTML / CSS / JavaScript，无需构建或后端。
 
-## ✨ 功能
+## 本地运行
 
-- **国家 × 时间二维时间线**：每个国家一条彩色轨道，朝代/时期用不同颜色区分，一目了然。
-- **缩放与拖拽**：鼠标滚轮缩放，按住拖动画布，既能总揽全局也能精细查看。
-- **点击查看详情**：点击某个朝代/时期，右侧弹出该时期的真实历史地图（维基共享资源）与简介。
-- **AI 自动添加人物/事件**：例如对 AI 说“将爱因斯坦加入时间线”，AI 自动分析国籍与生卒年，在对应国家轨道上标注其一生时间段；点击可查看说明。若国籍对应国家不存在，会自动创建一条新的国家轨道。
-- **笔记功能**：随时记笔记，可关联年份并一键定位到该年份。
-- **手动添加事件/人物**：不依赖 AI 也能添加内容。
-- **本地持久化 + 备份**：AI/手动添加的内容、笔记、自定义简介保存在浏览器 localStorage；支持导出/导入 JSON 备份。
+安装 Node.js 后，在项目目录运行：
 
-## 🚀 部署到 GitHub Pages
-
-1. 在 GitHub 新建仓库，把本目录内容推送到仓库：
-
-   ```bash
-   git init
-   git add .
-   git commit -m "init history timeline"
-   git branch -M main
-   git remote add origin https://github.com/<你的用户名>/<仓库名>.git
-   git push -u origin main
-   ```
-
-2. 打开仓库 **Settings → Pages**，在 “Build and deployment” 中：
-   - Source 选择 **Deploy from a branch**
-   - Branch 选择 **main**，目录选择 **/ (root)**，保存。
-
-3. 稍等片刻，访问 `https://<你的用户名>.github.io/<仓库名>/` 即可。
-
-> 已包含 `.nojekyll` 文件，确保 GitHub Pages 原样提供静态资源。
-
-## 🖥 本地运行
-
-由于使用 ES Modules 与 `fetch` 加载数据，**不要直接双击 `index.html`**（`file://` 协议会被浏览器拦截）。请起一个本地静态服务器：
-
-```bash
-# 方式一：Python
-python -m http.server 8000
-# 方式二：Node
-npx serve .
+```sh
+node server.mjs
 ```
 
-然后访问 `http://localhost:8000/`。
+打开 http://localhost:8000 。不要双击 HTML；模块与 JSON 需要 HTTP 服务。也可以运行 `python -m http.server 8000`。本地服务器只监听本机，不开放到局域网。可设置 `PORT` 改端口。
 
-## 🤖 AI 配置
+## 日常使用
 
-点击右上角「⚙ 设置」，选择服务商并填写 API Key（Key 只保存在你的浏览器本地）：
+- 滚轮围绕鼠标位置缩放，按住鼠标拖动画布。左侧国家名和顶部标尺固定；多国轨道可以纵向拖动。
+- “全部历史 / 1500 年至今 / 近现代”切换范围；“总览”恢复全部年代。画布获得焦点后可用方向键平移、`+` / `-` 缩放、`0` 总览。
+- 搜索朝代、人物、事件后定位并打开详情。同一时期并存的朝代自动分层，人物与事件另起一行，避免覆盖。
+- “添加”支持事件、人物、朝代 / 时期。点击详情中的编辑按钮可改名称、年代、简介、地图和资料来源；也可以删除记录。
+- 人物国籍可填多个，用逗号分隔。不存在的国家会自动创建轨道。人物生平会出现在相关国家中，**不等于该国籍的持有时间**。支持选填完整出生和逝世日期；日期须与年份一致。
+- 朝代详情“记一条笔记”自动带入名称和年份。笔记支持新增、编辑、删除、定位年份和 AI 整理。
+- 公元前用负数（例如 -221），公元后用正数，无公元 0 年；时间坐标跨纪元连续。
+- 当代时期标记 `ongoing: true` 时随当前年份延伸。手动改为其他结束年后变为固定时段。
 
-| 服务商 | 接口地址 | 模型 |
-| --- | --- | --- |
-| DeepSeek（默认） | `https://api.deepseek.com/chat/completions` | `deepseek-chat` |
-| OpenAI | `https://api.openai.com/v1/chat/completions` | `gpt-4o-mini` |
-| 其他 OpenAI 兼容中转 | 自行填写 | 自行填写 |
-| Google Gemini | （自动，无需地址） | `gemini-2.0-flash` |
+## AI 助手
 
-> **关于 CORS**：部分服务商（如 OpenAI）禁止浏览器直接跨域调用，此时浏览器会报 CORS 错误。可改用支持浏览器直连的服务（Gemini），或自建一个转发代理。DeepSeek 接口在多数环境下可直接从浏览器调用。
+未配置密钥时，“爱因斯坦 / 秦始皇 / 二战”三个快捷问题使用**内置示例**，不会调用模型。其他自由提问及笔记整理需要在设置中填写接口、模型名称和密钥。
 
-## 📁 数据与修改
+支持 OpenAI 兼容的 Chat Completions 接口以及 Gemini generateContent 接口。接口地址应为完整 HTTPS URL，模型名称以你的服务商账户实际提供为准。默认模型名称只是可编辑初值。
 
-- `data/countries.json`：国家及其朝代/时期（名称、起止年、颜色、简介）。
-- `data/events.json`：预置人物与事件。
-- `js/maps.js`：各时期的**维基共享资源（Wikimedia Commons）真实历史地图**映射，以及加载失败时的示意 SVG 兜底。
-- `data` 中的年份规则：**公元前用负数**（如公元前 221 年 = `-221`），公元后用正数。
+AI 先生成草稿，再由用户检查。人物、事件会打开可编辑表单，同名条目优先编辑以减少重复；笔记可编辑草稿后确认保存。笔记列表的“AI 整理”只发送所选笔记和用户指令，不会发送整份笔记库。返回值需要经过 JSON、类型与年份校验；超时为45秒。
 
-朝代地图默认从维基共享资源热链接对应时期的真实历史地图（如唐朝、明朝、清朝、美国独立战争等），并在详情面板提供「在维基百科查看」链接；若图片加载失败会自动回退为示意图。如需自定义，可在 `data/countries.json` 的朝代中加 `"mapImage": "https://..."` 字段覆盖默认地图。
+密钥存于当前浏览器的 localStorage，调用时发送给所配置接口。不要把密钥写入文件、仓库或公开截图。备份不包含密钥。GitHub Pages 不能运行服务端代理，浏览器直连需要接口允许 CORS；如果不支持，请使用自己可信的代理，或继续使用手动录入。AI 整理可能出错，请核对史实和来源。
 
-## 🗂 项目结构
+## 地图与数据范围
 
+秦朝（约前210年）、唐朝（约700年）、十三殖民地（约1775年）地图已随项目提供，无需连接外部图片服务。作者、许可及原始文件页面见 [地图来源](assets/maps/ATTRIBUTION.md)。
+
+其他已配置的地图使用 Wikimedia Commons 外链，受网络和源站可用性影响；尚未收录的时期会显示缺图提示，可在“编辑时期 / 地图”中填写图片网址和年代说明。不会用随意绘制的轮廓冒充历史疆域，也不把其他朝代的地图作为缺图替代。地图表现的是来源所注明的时点，而非整个时期的固定范围。
+
+基础数据在 `data/countries.json`、`data/events.json`。目前是个人学习用的中美示例资料，不是完整、逐条校勘的历史数据库；并列政权和近现代时期仍可继续补充。内置记录的修改与删除仅作用于当前浏览器，源文件不受影响。
+
+## 保存与备份
+
+浏览器 localStorage 保存个人国家、时期、人物、事件、笔记与简介。刷新会保留；清理站点数据、切换浏览器或切换网址不会自动同步。请定期在设置中导出 JSON。导入会替换当前个人数据，页面会先提醒备份；格式校验失败时不会接受文件。
+
+GitHub Pages 托管网页，不会替你把浏览器笔记提交到 GitHub。跨设备请用导出 / 导入迁移。旧版 `timeline.*` 存储键继续兼容。
+
+## GitHub Pages
+
+项目已包含 `.nojekyll` 与 `.github/workflows/pages.yml`：
+
+1. 将项目推送到自己的 GitHub 仓库 `main` 分支。
+2. 在仓库 Settings → Pages 中选择 **GitHub Actions** 作为部署来源。
+3. 推送后等待 Deploy historical timeline 工作流完成，访问仓库 Pages 地址。
+
+工作流仅发布 `index.html`、`.nojekyll`、`css`、`js`、`data`、`assets`，不发布测试结果或本地服务器。全部资源采用相对路径，兼容 `https://用户名.github.io/仓库名/`。
+
+也可不使用工作流，选择 Deploy from a branch → main → /(root)。两种方式选择一种即可。部署说明参考 [GitHub 官方文档](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。当前代码交付不包含向远程仓库推送或实际发布。
+
+## 开发与验证
+
+`js/bootstrap.js` 捕获模块加载和未处理错误；`main.js` 初始化数据和画布；`renderer.js` 负责统一排布与点击区域；`editor.js` 处理录入；`data.js` 管理校验和持久化。
+
+浏览器回归测试需 Node.js、Playwright 和 Microsoft Edge（可通过 `BROWSER_CHANNEL=chrome` 换用 Chrome）。另一个终端保持 `node server.mjs` 运行后执行：
+
+```sh
+npm install --no-save playwright
+node tests/smoke.cjs
+node tests/regression.cjs
 ```
-index.html          页面结构
-css/style.css       样式
-js/
-  main.js           入口
-  state.js          视图状态与常量
-  data.js           数据加载与本地持久化
-  renderer.js       Canvas 渲染与视图控制
-  interaction.js    缩放/拖拽/点击命中
-  panels.js         详情面板
-  maps.js           维基历史地图映射 + 示意兜底 SVG
-  ai.js             AI 助手
-  notes.js          笔记
-  ui.js             工具栏/搜索/设置
-data/               基础数据
-```
 
-## 📝 说明
-
-- 朝代/时期地图默认来自**维基共享资源**的真实历史地图（通过 `Special:FilePath` 热链接），可点击详情面板中的「在维基百科查看」进一步阅读；图片加载失败会自动回退为示意图。
-- 中国各朝代、美国各时期的时间与简介为常见通行说法，个人使用可按需在 `data/countries.json` 中修改。
+若使用已有 Playwright 安装，可设置 `PLAYWRIGHT_PATH` 为其模块绝对路径。测试使用隔离浏览器，不修改个人浏览器数据。测试截图写入已忽略的 `artifacts/`。AI 回归使用模拟响应，不消耗额度；真实服务需自行配置后验证。

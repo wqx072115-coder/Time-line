@@ -1,7 +1,7 @@
 // 应用入口
-import { loadData, allCountries } from './data.js';
-import { view, ui } from './state.js';
-import { draw, fitView, focusOn, focusYear } from './renderer.js';
+import { loadData, allCountries, allEvents } from './data.js';
+import { view, ui, CONST } from './state.js';
+import { draw, fitView, focusOn, focusYear, fitRange } from './renderer.js';
 import { initInteraction } from './interaction.js';
 import { openDetail, updateTooltip, initPanels } from './panels.js';
 import { initAI } from './ai.js';
@@ -15,6 +15,7 @@ let dpr = 1;
 function resize() {
   dpr = window.devicePixelRatio || 1;
   const rect = canvas.parentElement.getBoundingClientRect();
+  CONST.GUTTER_W = rect.width < 600 ? 110 : 150;
   view.cw = Math.max(320, rect.width);
   view.ch = Math.max(240, rect.height);
   canvas.width = Math.round(view.cw * dpr);
@@ -27,6 +28,7 @@ function resize() {
 function render() {
   draw(ctx, view.cw, view.ch);
   updateScaleInfo();
+  document.getElementById('atlasStats').textContent = `${allCountries().length} 个国家 · ${allCountries().reduce((n,c)=>n+c.periods.length,0)} 个时期 · ${allEvents().length} 条记录`;
 }
 
 function focusAndSelect(item, country) {
@@ -36,8 +38,11 @@ function focusAndSelect(item, country) {
 }
 
 function showFatal(err) {
+  console.error(err);
   const isFile = (typeof location !== 'undefined' && location.protocol === 'file:');
   const hint = document.getElementById('hint');
+  hint.classList.add('fatal');
+  hint.style.opacity = '1';
   hint.style.display = 'block';
   hint.style.background = 'rgba(150,40,40,0.95)';
   if (isFile) {
@@ -101,7 +106,11 @@ async function boot() {
     onFocusYear: (year) => { focusYear(year); render(); },
   });
 
-  window.addEventListener('resize', () => { resize(); render(); });
+  new ResizeObserver(() => { resize(); render(); document.documentElement.style.setProperty('--toolbar-height', document.getElementById('toolbar').offsetHeight+'px'); }).observe(canvas.parentElement);
+  document.addEventListener('datachanged', () => { ui.selection = null; render(); });
+  document.getElementById('btnAncient').onclick = () => { fitView(); render(); };
+  document.getElementById('btnModern').onclick = () => { fitRange(1500,new Date().getFullYear()+10); render(); };
+  document.getElementById('btnRecent').onclick = () => { fitRange(1800,new Date().getFullYear()+10); render(); };
 
   // 首次提示渐隐
   setTimeout(() => {
@@ -110,4 +119,4 @@ async function boot() {
   }, 5000);
 }
 
-boot();
+boot().catch(showFatal);

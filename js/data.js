@@ -1,5 +1,5 @@
 // 数据加载与本地持久化
-import { toFinite, normalizeColor, uid } from './utils.js';
+import { toFinite, normalizeColor, uid, toast } from './utils.js';
 
 export const store = {
   countries: [],      // 基础国家（countries.json）
@@ -8,6 +8,7 @@ export const store = {
   userEvents: [],     // AI / 手动添加的事件、人物
   userPeriods: {},    // 用户编辑过的朝代简介 {countryId: {periodId: text}}
   notes: [],
+  removed: [],
   settings: {
     provider: 'openai',   // 'openai' | 'gemini'
     endpoint: 'https://api.deepseek.com/chat/completions',
@@ -23,6 +24,7 @@ const LS = {
   userPeriods: 'timeline.userPeriods',
   notes: 'timeline.notes',
   settings: 'timeline.settings',
+  removed: 'timeline.removed',
 };
 
 function safeGet(key, fallback) {
@@ -39,6 +41,8 @@ function save(key, value) {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
     console.warn('保存本地数据失败', key, e);
+    toast('保存失败：浏览器存储不可用或已满，请立即导出备份。');
+    throw new Error('本地保存失败，请导出备份');
   }
 }
 
@@ -95,7 +99,7 @@ function sanitizePeriods(list, countryColor) {
   for (const p of list) {
     if (!p || typeof p !== 'object') continue;
     const start = toFinite(p.start);
-    const end = toFinite(p.end);
+    const end = p.ongoing ? new Date().getFullYear() : toFinite(p.end);
     if (start == null || end == null) {
       console.warn('跳过无效朝代（年份非法）:', p && p.name);
       continue;
@@ -110,10 +114,13 @@ function sanitizePeriods(list, countryColor) {
       name: String(p.name || '未命名时期'),
       start: s,
       end: e,
+      ongoing: p.ongoing === true,
       color: normalizeColor(p.color, countryColor || '#999999'),
       mapImage: p.mapImage ? String(p.mapImage) : null,
       map: p.map ? String(p.map) : null,
       description: String(p.description || ''),
+      mapSource: String(p.mapSource || ''),
+      sourceUrl: String(p.sourceUrl || ''),
     });
   }
   return out;
@@ -132,6 +139,7 @@ function sanitizeEvents(list) {
         continue;
       }
       out.push({
+        ...e,
         id: String(e.id || uid()),
         type: 'person',
         name: String(e.name || e.nameEn || '未命名'),
@@ -154,6 +162,7 @@ function sanitizeEvents(list) {
         continue;
       }
       out.push({
+        ...e,
         id: String(e.id || uid()),
         type: 'event',
         name: String(e.name || '未命名'),
@@ -176,7 +185,9 @@ function loadOverlay() {
   const up = safeGet(LS.userPeriods, {});
   store.userPeriods = (up && typeof up === 'object' && !Array.isArray(up)) ? up : {};
   const notes = safeGet(LS.notes, []);
-  store.notes = Array.isArray(notes) ? notes : [];
+  store.notes = sanitizeNotes(notes);
+  const removed = safeGet(LS.removed, []);
+  store.removed = Array.isArray(removed) ? removed.filter(x=>typeof x==='string') : [];
   const s = safeGet(LS.settings, null);
   if (s && typeof s === 'object' && !Array.isArray(s)) Object.assign(store.settings, s);
 }
@@ -187,14 +198,15 @@ export const saveData = {
   userPeriods() { save(LS.userPeriods, store.userPeriods); },
   notes() { save(LS.notes, store.notes); },
   settings() { save(LS.settings, store.settings); },
+  removed() { save(LS.removed, store.removed); },
 };
 
 // ---------- 便捷读取 ----------
 export function allCountries() {
-  return store.countries.concat(store.userCountries);
+  return [...new Map([...store.countries, ...store.userCountries].map(c=>[c.id,c])).values()];
 }
 export function allEvents() {
-  return store.events.concat(store.userEvents);
+  return [...new Map([...store.events, ...store.userEvents].map(e=>[e.id,e])).values()].filter(e=>!store.removed.includes(e.id));
 }
 export function findCountry(id) {
   return allCountries().find(c => c.id === id);
@@ -244,14 +256,76 @@ export function exportAll() {
     userEvents: store.userEvents,
     userPeriods: store.userPeriods,
     notes: store.notes,
+    removed: store.removed,
+    version: 2,
   }, null, 2);
 }
 export function importAll(json) {
   const d = typeof json === 'string' ? JSON.parse(json) : json;
-  if (!d || typeof d !== 'object') throw new Error('数据格式无效');
+  if (!d || d.app !== 'history-timeline' || !Array.isArray(d.userEvents) || !Array.isArray(d.userCountries) || !Array.isArray(d.notes)) throw new Error('请选择历史时间线导出的备份文件');
+  for(const e of d.userEvents){
+    if(!e || !['person','event'].includes(e.type) || !e.name) throw new Error('备份包含无效条目，未导入');
+    validYear(e.type==='person'?e.birth:e.year);
+    if(e.type==='person'&&e.death!=null){validYear(e.death);if(e.death<e.birth)throw new Error('备份人物生卒年份倒置');}
+  }
+  for(const c of d.userCountries){if(!c || !c.id || !c.name || !Array.isArray(c.periods))throw new Error('备份包含无效国家');for(const p of c.periods){validYear(p.start);validYear(p.end);if(p.start>p.end)throw new Error('备份时期年份倒置');}}
   if (Array.isArray(d.userEvents)) store.userEvents = sanitizeEvents(d.userEvents);
   if (Array.isArray(d.userCountries)) store.userCountries = sanitizeCountries(d.userCountries);
   if (d.userPeriods && typeof d.userPeriods === 'object' && !Array.isArray(d.userPeriods)) store.userPeriods = d.userPeriods;
-  if (Array.isArray(d.notes)) store.notes = d.notes;
-  saveData.userEvents(); saveData.userCountries(); saveData.userPeriods(); saveData.notes();
+  if (Array.isArray(d.notes)) store.notes = sanitizeNotes(d.notes);
+  store.removed = Array.isArray(d.removed) ? d.removed.filter(x=>typeof x==='string') : [];
+  saveData.userEvents(); saveData.userCountries(); saveData.userPeriods(); saveData.notes(); saveData.removed();
+  document.dispatchEvent(new Event('datachanged'));
+}
+
+function sanitizeNotes(list) {
+  return Array.isArray(list) ? list.filter(n=>n && typeof n==='object').map(n=>({...n,id:String(n.id||uid()),title:String(n.title||''),text:String(n.text||''),year:toFinite(n.year)})) : [];
+}
+
+export function validYear(value, label='年份') {
+  const n=toFinite(value);
+  if(n===null || !Number.isInteger(n) || n===0 || n < -100000 || n>100000) throw new Error(label+'须为非零整数（公元前用负数）');
+  return n;
+}
+export function ensureCountry(name) {
+  const text=String(name||'').trim();
+  if(!text) throw new Error('请填写国家');
+  const existing=countryByNameOrId(text); if(existing)return existing;
+  const c={id:uid(),name:text,nameEn:'',color:'#527d88',aliases:[text],periods:[]};
+  store.userCountries.push(c);saveData.userCountries();return c;
+}
+export function saveEntry(entry) {
+  if(!String(entry.name||'').trim())throw new Error('请填写名称');
+  if(entry.type==='person'){
+    entry.birth=validYear(entry.birth,'出生年份');
+    entry.death=entry.death==null||entry.death===''?null:validYear(entry.death,'逝世年份');
+    if(entry.death!=null&&entry.death<entry.birth)throw new Error('逝世年份不能早于出生年份');
+    if(!Array.isArray(entry.nationality)||!entry.nationality.length)throw new Error('请填写国籍');
+    entry.nationality=[...new Set(entry.nationality.map(n=>ensureCountry(n).id))];
+  }else if(entry.type==='event'){
+    entry.year=validYear(entry.year); entry.country=ensureCountry(entry.country).id;
+  }else throw new Error('不支持的条目类型');
+  entry.id ||= uid();
+  const i=store.userEvents.findIndex(e=>e.id===entry.id);
+  if(i<0)store.userEvents.push(entry);else store.userEvents[i]=entry;
+  store.removed=store.removed.filter(id=>id!==entry.id);
+  saveData.userEvents();saveData.removed();
+  document.dispatchEvent(new Event('datachanged'));return entry;
+}
+export function savePeriod(countryId,period){
+  period.start=validYear(period.start,'起始年份');period.end=validYear(period.end,'结束年份');
+  if(period.start>period.end)throw new Error('结束年份不能早于起始年份');
+  if(!period.name?.trim())throw new Error('请填写时期名称');
+  const country=structuredClone(findCountry(countryId));if(!country)throw new Error('国家不存在');
+  period.id ||= uid();period.color=normalizeColor(period.color,country.color);
+  const i=country.periods.findIndex(p=>p.id===period.id);if(i<0)country.periods.push(period);else country.periods[i]=period;
+  const ci=store.userCountries.findIndex(c=>c.id===country.id);if(ci<0)store.userCountries.push(country);else store.userCountries[ci]=country;
+  if(store.userPeriods[countryId]){delete store.userPeriods[countryId][period.id];saveData.userPeriods();}
+  saveData.userCountries();document.dispatchEvent(new Event('datachanged'));return period;
+}
+export function removeEntry(id){store.removed.push(id);saveData.removed();document.dispatchEvent(new Event('datachanged'));}
+export function removePeriod(countryId,id){
+  const c=structuredClone(findCountry(countryId));c.periods=c.periods.filter(p=>p.id!==id);
+  const i=store.userCountries.findIndex(x=>x.id===countryId);if(i<0)store.userCountries.push(c);else store.userCountries[i]=c;
+  saveData.userCountries();document.dispatchEvent(new Event('datachanged'));
 }
