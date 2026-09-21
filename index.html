@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>历史时间线 · History Timeline</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="toolbar">
+    <div class="brand">
+      <span class="logo">⏳</span>
+      <div class="brand-text">
+        <span class="title">历史时间线</span>
+        <span class="subtitle">History Timeline</span>
+      </div>
+    </div>
+    <div class="tools">
+      <div class="btn-group">
+        <button id="btnZoomOut" class="icon-btn" title="缩小">−</button>
+        <button id="btnZoomIn" class="icon-btn" title="放大">＋</button>
+        <button id="btnFit" class="btn" title="总览全局">⤢ 总览</button>
+      </div>
+      <span id="scaleInfo" class="scale-info"></span>
+      <div class="search">
+        <input id="searchInput" type="text" placeholder="搜索朝代 / 人物 / 事件…" autocomplete="off">
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <button id="btnAI" class="btn accent">🤖 AI 助手</button>
+      <button id="btnAddEvent" class="btn">＋ 添加</button>
+      <button id="btnNotes" class="btn">📝 笔记</button>
+      <button id="btnSettings" class="btn">⚙ 设置</button>
+    </div>
+  </header>
+
+  <section class="intro"><div><span class="eyebrow">YOUR PERSONAL HISTORY ATLAS</span><h1>在时间中，看见世界。</h1><p>沿着中国与美国的历史脉络，记录人物、事件与自己的思考。</p></div><div class="intro-stats" id="atlasStats">正在载入历史档案…</div></section>
+  <nav class="view-bar" aria-label="时间视图"><div class="row"><button class="btn" id="btnAncient">全部历史</button><button class="btn" id="btnModern">1500 年至今</button><button class="btn" id="btnRecent">近现代</button></div><span class="legend">■ 朝代 / 时期　<span style="color:#0e7c66">━ 人物生平</span>　<span style="color:#8e44ad">◆ 事件</span></span></nav>
+  <main id="stage">
+    <canvas id="timeline" aria-label="历史时间线，滚轮缩放、拖动平移，也可以用搜索定位" tabindex="0"></canvas>
+    <div id="hint" class="hint">🖱 滚轮缩放 &nbsp;·&nbsp; 拖动画布 &nbsp;·&nbsp; 点击朝代 / 人物查看详情</div>
+    <div id="tooltip" class="tooltip"></div>
+    <div id="toast" class="toast"></div>
+  </main>
+
+  <!-- 详情面板 -->
+  <aside id="detailPanel" class="panel right hidden">
+    <div class="panel-head">
+      <span id="detailTitle" class="panel-title">详情</span>
+      <button class="panel-close" data-close="detailPanel">×</button>
+    </div>
+    <div id="detailBody" class="panel-body"></div>
+  </aside>
+
+  <!-- AI 助手面板 -->
+  <aside id="aiPanel" class="panel right hidden">
+    <div class="panel-head">
+      <span class="panel-title">🤖 AI 助手</span>
+      <button class="panel-close" data-close="aiPanel">×</button>
+    </div>
+    <div class="panel-body ai-body">
+      <div id="aiMessages" class="ai-messages"></div>
+      <div class="ai-hints" id="aiHints">
+        <span class="ai-hint" data-q="将爱因斯坦加入时间线">将爱因斯坦加入时间线</span>
+        <span class="ai-hint" data-q="把秦始皇加入时间线">把秦始皇加入时间线</span>
+        <span class="ai-hint" data-q="添加事件：1945年第二次世界大战结束">添加事件：二战结束</span>
+      </div>
+      <div class="ai-input-row">
+        <textarea id="aiInput" rows="2" placeholder="例如：将爱因斯坦加入时间线"></textarea>
+        <button id="aiSend" class="btn accent">发送</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- 笔记面板 -->
+  <aside id="notesPanel" class="panel right hidden">
+    <div class="panel-head">
+      <span class="panel-title">📝 笔记</span>
+      <button class="panel-close" data-close="notesPanel">×</button>
+    </div>
+    <div class="panel-body notes-body">
+      <button id="btnNewNote" class="btn block">＋ 新建笔记</button>
+      <div id="noteForm" class="note-form hidden">
+        <input id="noteTitle" type="text" placeholder="标题（可选）">
+        <input id="noteYear" type="number" placeholder="关联年份（可选，如 1879；公元前用负数，如 -221）">
+        <textarea id="noteText" rows="5" placeholder="笔记内容…"></textarea>
+        <div class="note-form-actions">
+          <button id="noteSave" class="btn accent">保存</button>
+          <button id="noteCancel" class="btn">取消</button>
+        </div>
+      </div>
+      <div id="noteList" class="note-list"></div>
+    </div>
+  </aside>
+
+  <!-- 添加事件弹窗 -->
+  <div id="addEventModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="panel-head">
+        <span class="panel-title">＋ 添加事件 / 人物</span>
+        <button class="panel-close" data-close="addEventModal">×</button>
+      </div>
+      <div class="modal-body">
+        <label>类型</label>
+        <select id="aeType">
+          <option value="event">事件</option>
+          <option value="person">人物</option>
+        </select>
+        <label>名称</label>
+        <input id="aeName" type="text" placeholder="例如：秦始皇 / 秦统一六国">
+        <label>所属国家</label>
+        <select id="aeCountry"></select>
+        <div id="aePersonFields" class="hidden">
+          <label>出生年份（公元前用负数）</label>
+          <input id="aeBirth" type="number" placeholder="-259">
+          <label>逝世年份（可留空）</label>
+          <input id="aeDeath" type="number" placeholder="例如 -210">
+          <label>国籍（多个用逗号分隔，可填新国家）</label>
+          <input id="aeNat" type="text" placeholder="中国 或 德国,瑞士">
+        </div>
+        <div id="aeEventFields">
+          <label>年份（公元前用负数）</label>
+          <input id="aeYear" type="number" placeholder="-221">
+        </div>
+        <label>说明</label>
+        <textarea id="aeDesc" rows="4" placeholder="简要说明…"></textarea>
+        <div class="modal-actions">
+          <button id="aeSubmit" class="btn accent">添加</button>
+          <button class="btn" data-close="addEventModal">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置面板 -->
+  <aside id="settingsPanel" class="panel right hidden">
+    <div class="panel-head">
+      <span class="panel-title">⚙ 设置</span>
+      <button class="panel-close" data-close="settingsPanel">×</button>
+    </div>
+    <div class="panel-body settings-body">
+      <div class="settings-section">
+        <h3>AI 服务</h3>
+        <p class="hint-text">密钥保存在此浏览器，调用时会发送到你配置的 AI 接口。不要将密钥提交到仓库；备份不包含密钥。模型名称请按服务商实际提供的名称填写。</p>
+        <label>服务商</label>
+        <select id="stProvider">
+          <option value="openai">OpenAI 兼容接口（DeepSeek / OpenAI / 中转…）</option>
+          <option value="gemini">Google Gemini</option>
+        </select>
+        <div id="stOpenaiFields">
+          <label>接口地址</label>
+          <input id="stEndpoint" type="text" placeholder="https://api.deepseek.com/chat/completions">
+          <label>模型</label>
+          <input id="stModel" type="text" placeholder="deepseek-chat">
+        </div>
+        <div id="stGeminiFields" class="hidden">
+          <label>模型</label>
+          <input id="stGeminiModel" type="text" placeholder="gemini-2.0-flash">
+        </div>
+        <label>API Key</label>
+        <input id="stKey" type="password" placeholder="sk-…">
+        <button id="stSave" class="btn accent">保存设置</button>
+      </div>
+      <div class="settings-section">
+        <h3>数据备份</h3>
+        <p class="hint-text">AI 添加的人物、笔记等保存在浏览器本地。导出 JSON 可备份或提交到 GitHub 仓库。</p>
+        <div class="row">
+          <button id="btnExport" class="btn">⬇ 导出数据</button>
+          <button id="btnImport" class="btn">⬆ 导入数据</button>
+          <input id="importFile" type="file" accept="application/json" class="hidden">
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>关于</h3>
+        <p class="hint-text">点击条目可以编辑内容；“添加”支持人物、事件和时期。秦、唐、十三殖民地地图随项目提供；其他已配置地图需要联网，缺少地图的时期可自行补充。地图代表所注明的年代，不代表整个时期疆域。个人内容仅存于当前浏览器，请定期导出备份。</p>
+      </div>
+    </div>
+  </aside>
+
+  <noscript>请启用 JavaScript 才能查看时间线。</noscript>
+  <script src="js/bootstrap.js"></script>
+</body>
+</html>

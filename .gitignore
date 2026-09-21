@@ -1,0 +1,11 @@
+# 依赖与系统文件
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# 本地截图/临时文件
+_shot.png
+_smoke.mjs
+artifacts/
+_site/

@@ -1,0 +1,44 @@
+const {chromium}=require(process.env.PLAYWRIGHT_PATH || 'playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{
+  const browser=await chromium.launch({headless:true,channel:process.env.BROWSER_CHANNEL || 'msedge'});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  // Isolate external map loading: rendering must work even if it is unavailable.
+  await page.route('https://commons.wikimedia.org/**',r=>r.abort());
+  await page.goto('http://127.0.0.1:8000/preview/');
+  await page.waitForFunction(()=>document.getElementById('atlasStats').textContent.includes('2 个国家'));
+  let state=await page.evaluate(async()=>{const {ui,view}=await import('./js/state.js');return {hits:ui.hits.length,countries:ui.lanes.map(l=>l.country.name),scale:view.scale};});
+  assert(state.hits>20);assert.deepEqual(state.countries,['中国','美国']);
+  await page.locator('#btnModern').click();
+  const scale=await page.evaluate(async()=>(await import('./js/state.js')).view.scale);assert(scale>state.scale);
+  const canvas=await page.locator('#timeline').boundingBox();await page.mouse.move(canvas.x+600,canvas.y+150);await page.mouse.wheel(0,-160);
+  await page.waitForTimeout(200);assert(await page.evaluate(async()=>(await import('./js/state.js')).view.scale)>scale);
+  await page.locator('#searchInput').fill('唐朝');await page.locator('.search-item').click();await page.locator('#detailTitle').filter({hasText:'唐朝'}).waitFor();
+  await page.getByRole('button',{name:'编辑时期 / 地图',exact:true}).click();await page.locator('#aeDesc').fill('测试时期简介');await page.locator('#aeSubmit').click();
+  await page.locator('[data-close="detailPanel"]').click();
+  await page.locator('#btnAddEvent').click();await page.locator('#aeName').fill('测试事件');await page.locator('#aeSubmit').click();assert(await page.locator('#addEventModal').isVisible());
+  await page.locator('#aeYear').fill('2001');await page.locator('#aeSubmit').click();assert(!(await page.locator('#addEventModal').isVisible()));
+  await page.locator('#searchInput').fill('测试事件');await page.locator('.search-item').click();await page.getByRole('button',{name:'编辑记录',exact:true}).click();await page.locator('#aeName').fill('编辑后的事件');await page.locator('#aeSubmit').click();
+  await page.locator('[data-close="detailPanel"]').click();
+  await page.locator('#btnNotes').click();await page.locator('#btnNewNote').click();await page.locator('#noteTitle').fill('测试笔记');await page.locator('#noteText').fill('这是一条持久化测试笔记。');await page.locator('#noteYear').fill('-221');await page.locator('#noteSave').click();
+  await page.reload();await page.waitForFunction(()=>document.getElementById('atlasStats').textContent.includes('2 个国家'));
+  await page.locator('#btnNotes').click();assert((await page.locator('#noteList').innerText()).includes('测试笔记'));
+  await page.locator('#btnAI').click();await page.locator('[data-q="将爱因斯坦加入时间线"]').click();await page.getByRole('button',{name:'已有同名记录，检查并编辑'}).click();await page.locator('#aeSubmit').click();
+  const countries=await page.evaluate(async()=>(await import('./js/data.js')).allCountries().map(c=>c.name));assert(countries.includes('德国')&&countries.includes('瑞士'));
+  // Mock the remote response, exercising the real request, parsing and preview UI.
+  await page.evaluate(async()=>{const {store}=await import('./js/data.js');store.settings.apiKey='test-only';store.settings.endpoint='https://example.com/ai';});
+  await page.route('https://example.com/ai',r=>r.fulfill({json:{choices:[{message:{content:JSON.stringify({type:'note',title:'整理后的笔记',text:'已经整理的笔记内容',year:-221})}}]}}));
+  await page.locator('#btnNotes').click();await page.getByRole('button',{name:'AI 整理',exact:true}).click();await page.locator('#aiSend').click();await page.getByRole('button',{name:'确认更新此笔记'}).click();
+  await page.locator('#btnNotes').click();assert((await page.locator('#noteList').innerText()).includes('已经整理的笔记内容'));
+  const backup=await page.evaluate(async()=>(await import('./js/data.js')).exportAll());assert(!backup.includes('test-only'));
+  await page.evaluate(async backup=>{const d=await import('./js/data.js');d.importAll(backup);},backup);
+  await page.locator('[data-close="notesPanel"]').click();await page.locator('#btnFit').click();
+  await page.setViewportSize({width:1440,height:1000});
+  fs.mkdirSync('artifacts',{recursive:true});await page.screenshot({path:'artifacts/timeline-desktop.png'});
+  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(150);assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.locator('#btnFit').click();await page.screenshot({path:'artifacts/timeline-mobile.png'});
+  assert.deepEqual(errors,[]);console.log('PASS: initial rendering, subpath, zoom, search, period/event editing, validation, notes persistence, AI preview, multi-country, AI note update, backup, mobile');
+  await browser.close();
+})().catch(e=>{console.error(e);process.exit(1);});
